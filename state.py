@@ -4,6 +4,7 @@ from models import Itinerary
 class AgentState(TypedDict):
     destination: str
     origin: str
+    travel_date: str
     budget: float
     currency: str
     duration_days: int

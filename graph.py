@@ -26,11 +26,12 @@ def researcher(state: AgentState):
     origin = state["origin"]
     duration = state["duration_days"]
     currency = state["currency"]
+    travel_date = state["travel_date"]
     
-    # Simple query generation
+    # Improved query generation for realistic prices
     queries = [
-        f"cheapest flights from {origin} to {destination} for {duration} days in {currency}",
-        f"budget hotels in {destination} with prices in {currency}",
+        f"actual flight prices from {origin} to {destination} in {currency} for {travel_date}",
+        f"current hotel rates in {destination} per night in {currency} for {travel_date}",
         f"top activities within budget in {destination}"
     ]
     
@@ -59,11 +60,13 @@ def planner(state: AgentState):
     Search Results:
     {raw_data}
     
-    Instructions:
-    1. Extract at least one flight option and one hotel option with prices in {currency}.
-    2. Plan 2-3 activities per day.
-    3. Calculate the total cost in {currency}.
+    CRITICAL INSTRUCTIONS:
+    1. USE REAL PRICES found in the search results. DO NOT hallucinate or make up low prices to fit the budget.
+    2. If a flight or hotel is not found in the search results, or if the prices are clearly much higher than the budget, report the REAL price anyway and let the validator handle it.
+    3. If you cannot find any pricing data, set the price to 0.0 and mention this in the 'validation_notes'.
     4. Provide the output in STRICT JSON format matching the Itinerary model.
+    5. The 'total_cost' should be the sum of all components.
+    6. Plan at least 2-3 varied activities per day to provide a full experience.
     
     JSON Structure to follow:
     {{
@@ -72,9 +75,12 @@ def planner(state: AgentState):
         "total_cost": 0.0,
         "flights": [{{ "origin": "...", "destination": "...", "price": 0.0, "provider": "..." }}],
         "hotels": [{{ "name": "...", "price_per_night": 0.0, "total_price": 0.0, "rating": 4.5 }}],
-        "activities": [{{ "name": "...", "description": "...", "cost": 0.0, "day_number": 1 }}],
+        "activities": [
+            {{ "name": "Activity 1", "description": "...", "cost": 0.0, "day_number": 1 }},
+            {{ "name": "Activity 2", "description": "...", "cost": 0.0, "day_number": 1 }}
+        ],
         "status": "Incomplete",
-        "validation_notes": ""
+        "validation_notes": "Mention here if real prices exceed budget or if data was missing."
     }}
     """
     
@@ -82,12 +88,22 @@ def planner(state: AgentState):
     
     # Try to extract JSON from the response
     content = response.content
-    if "```json" in content:
-        content = content.split("```json")[1].split("```")[0].strip()
+    
+    import re
+    json_match = re.search(r'\{.*\}', content, re.DOTALL)
+    if json_match:
+        content = json_match.group(0)
     
     try:
         itinerary_data = json.loads(content)
         itinerary = Itinerary(**itinerary_data)
+        
+        # Programmatically calculate total cost to ensure accuracy
+        flight_cost = sum(f.price for f in itinerary.flights)
+        hotel_cost = sum(h.total_price for h in itinerary.hotels)
+        activity_cost = sum(a.cost for a in itinerary.activities)
+        itinerary.total_cost = flight_cost + hotel_cost + activity_cost
+        
         return {"current_itinerary": itinerary}
     except Exception as e:
         print(f"Error parsing itinerary: {e}")

@@ -2,10 +2,11 @@ from graph import app
 from state import AgentState
 import json
 
-def run_planner(destination: str, origin: str, budget: float, duration: int, currency: str = "USD"):
+def run_planner(destination: str, origin: str, travel_date: str, budget: float, duration: int, currency: str = "USD"):
     initial_state: AgentState = {
         "destination": destination,
         "origin": origin,
+        "travel_date": travel_date,
         "budget": budget,
         "currency": currency,
         "duration_days": duration,
@@ -17,7 +18,7 @@ def run_planner(destination: str, origin: str, budget: float, duration: int, cur
         "error": None
     }
     
-    print(f"Starting travel planner for {destination} from {origin} with budget {budget} {currency}...")
+    print(f"Starting travel planner for {destination} from {origin} on {travel_date} with budget {budget} {currency}...")
     
     final_state = app.invoke(initial_state)
     
@@ -57,7 +58,8 @@ if __name__ == "__main__":
     run_planner(
         destination="Goa",
         origin="Delhi",
-        budget=5000.0,
+        travel_date="June 2026",
+        budget=50000.0,
         duration=3,
         currency="INR"
     )
