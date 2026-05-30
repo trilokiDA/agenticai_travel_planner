@@ -16,21 +16,42 @@ with st.sidebar:
     st.header("Trip Details")
     destination = st.text_input("Destination", placeholder="e.g., Paris, Goa")
     origin = st.text_input("Origin", placeholder="e.g., London, Delhi")
-    travel_date = st.date_input("Travel Date", value=None, help="Select your preferred travel month/year")
+    
+    trip_type = st.radio("Trip Type", ["Round Trip", "One Way"], index=0)
+    
+    if trip_type == "Round Trip":
+        col1, col2 = st.columns(2)
+        start_date = col1.date_input("Start Date", value=None)
+        end_date = col2.date_input("End Date", value=None)
+        
+        if start_date and end_date:
+            if end_date < start_date:
+                st.error("End Date cannot be before Start Date.")
+                duration = 0
+            else:
+                duration = (end_date - start_date).days + 1
+                st.info(f"Duration: {duration} days")
+        else:
+            duration = 0
+        is_round_trip = True
+    else:
+        start_date = st.date_input("Start Date", value=None)
+        duration = st.slider("Duration (Days)", min_value=1, max_value=14, value=3)
+        is_round_trip = False
+        
     budget = st.number_input("Budget", min_value=1.0, value=50000.0)
     currency = st.selectbox("Currency", options=["INR", "USD"], index=0)
-    duration = st.slider("Duration (Days)", min_value=1, max_value=14, value=3)
     
     start_planning = st.button("Generate Plan")
 
 if start_planning:
-    if not destination or not origin or not travel_date:
-        st.error("Please provide origin, destination, and travel date.")
+    if not destination or not origin or not start_date or duration <= 0:
+        st.error("Please provide origin, destination, start date, and a valid duration.")
     elif not os.environ.get("GROQ_API_KEY") or not os.environ.get("TAVILY_API_KEY"):
         st.error("API Keys missing! Check your .env file.")
     else:
         # Format date for the agent (e.g., "June 2026")
-        formatted_date = travel_date.strftime("%B %Y")
+        formatted_date = start_date.strftime("%B %Y")
         
         initial_state: AgentState = {
             "destination": destination,
@@ -38,6 +59,7 @@ if start_planning:
             "travel_date": formatted_date,
             "budget": budget,
             "currency": currency,
+            "is_round_trip": is_round_trip,
             "duration_days": duration,
             "search_queries": [],
             "raw_search_results": [],

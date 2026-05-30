@@ -7,6 +7,7 @@ class AgentState(TypedDict):
     travel_date: str
     budget: float
     currency: str
+    is_round_trip: bool
     duration_days: int
     search_queries: List[str]
     raw_search_results: List[str]

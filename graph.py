@@ -27,10 +27,13 @@ def researcher(state: AgentState):
     duration = state["duration_days"]
     currency = state["currency"]
     travel_date = state["travel_date"]
+    is_round_trip = state["is_round_trip"]
+    
+    flight_type = "ROUND TRIP" if is_round_trip else "ONE WAY"
     
     # Improved query generation for realistic prices
     queries = [
-        f"actual flight prices from {origin} to {destination} in {currency} for {travel_date}",
+        f"actual {flight_type} flight prices from {origin} to {destination} in {currency} for {travel_date}",
         f"current hotel rates in {destination} per night in {currency} for {travel_date}",
         f"top activities within budget in {destination}"
     ]
@@ -52,10 +55,12 @@ def planner(state: AgentState):
     print("--- PLANNING ---")
     raw_data = "\n".join(state["raw_search_results"])
     currency = state["currency"]
+    trip_type_str = "ROUND TRIP" if state["is_round_trip"] else "ONE WAY"
     
     prompt = f"""
     Based on the following search results, create a structured travel itinerary for {state['destination']} with a budget of {state['budget']} {currency}.
     The user is traveling from {state['origin']} for {state['duration_days']} days.
+    THIS IS A {trip_type_str} JOURNEY.
     
     Search Results:
     {raw_data}
@@ -67,6 +72,7 @@ def planner(state: AgentState):
     4. Provide the output in STRICT JSON format matching the Itinerary model.
     5. The 'total_cost' should be the sum of all components.
     6. Plan at least 2-3 varied activities per day to provide a full experience.
+    7. IMPORTANT: For {trip_type_str} flights, ensure the price reflects the TOTAL cost for the entire journey (both ways if Round Trip). If you only find one-way prices in the search results for a Round Trip request, DOUBLE the price and mention this in 'validation_notes'.
     
     JSON Structure to follow:
     {{
