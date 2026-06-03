@@ -3,8 +3,11 @@ import os
 from graph import app
 from state import AgentState
 from dotenv import load_dotenv
+from datetime import datetime
 
 load_dotenv()
+
+today = datetime.now().date()
 
 st.set_page_config(page_title="AI Travel Planner", page_icon="✈️")
 
@@ -21,8 +24,8 @@ with st.sidebar:
     
     if trip_type == "Round Trip":
         col1, col2 = st.columns(2)
-        start_date = col1.date_input("Start Date", value=None)
-        end_date = col2.date_input("End Date", value=None)
+        start_date = col1.date_input("Start Date", value=None, min_value=today)
+        end_date = col2.date_input("End Date", value=None, min_value=start_date if start_date else today)
         
         if start_date and end_date:
             if end_date < start_date:
@@ -35,7 +38,7 @@ with st.sidebar:
             duration = 0
         is_round_trip = True
     else:
-        start_date = st.date_input("Start Date", value=None)
+        start_date = st.date_input("Start Date", value=None, min_value=today)
         duration = st.slider("Duration (Days)", min_value=1, max_value=14, value=3)
         is_round_trip = False
         
