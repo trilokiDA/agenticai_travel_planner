@@ -21,7 +21,7 @@ def researcher(state: AgentState):
     """
     Generates search queries and fetches data.
     """
-    print("--- RESEARCHING ---")
+    print(f"--- RESEARCHING ({'ROUND TRIP' if state['is_round_trip'] else 'ONE WAY'}) ---")
     destination = state["destination"]
     origin = state["origin"]
     duration = state["duration_days"]
@@ -40,7 +40,9 @@ def researcher(state: AgentState):
     
     raw_results = []
     for q in queries:
-        raw_results.append(search_travel(q))
+        res = search_travel(q)
+        print(f"DEBUG: Query: {q} | Result length: {len(res)}")
+        raw_results.append(res)
     
     return {
         "search_queries": queries,
@@ -72,14 +74,17 @@ def planner(state: AgentState):
     4. Provide the output in STRICT JSON format matching the Itinerary model.
     5. The 'total_cost' should be the sum of all components.
     6. Plan at least 2-3 varied activities per day to provide a full experience.
-    7. IMPORTANT: For {trip_type_str} flights, ensure the price reflects the TOTAL cost for the entire journey (both ways if Round Trip). If you only find one-way prices in the search results for a Round Trip request, DOUBLE the price and mention this in 'validation_notes'.
+    7. IMPORTANT: For {trip_type_str} flights, ensure the price reflects the TOTAL cost for the entire journey (both ways if Round Trip).
+       - If you find a round-trip price, provide it as a single flight entry with origin and destination.
+       - If you find only one-way prices for a Round Trip request, you MUST either provide two flight entries (Outbound and Inbound) OR provide one entry with the price DOUBLED.
+       - Clearly mention in 'validation_notes' how the flight price was calculated (e.g., "Round trip price found" or "One-way price doubled for round trip").
     
     JSON Structure to follow:
     {{
         "destination": "...",
         "total_budget": {state['budget']},
         "total_cost": 0.0,
-        "flights": [{{ "origin": "...", "destination": "...", "price": 0.0, "provider": "..." }}],
+        "flights": [{{ "origin": "...", "destination": "...", "price": 0.0, "provider": "...", "details": "Round Trip" }}],
         "hotels": [{{ "name": "...", "price_per_night": 0.0, "total_price": 0.0, "rating": 4.5 }}],
         "activities": [
             {{ "name": "Activity 1", "description": "...", "cost": 0.0, "day_number": 1 }},
@@ -91,10 +96,9 @@ def planner(state: AgentState):
     """
     
     response = llm.invoke(prompt)
-    
-    # Try to extract JSON from the response
     content = response.content
     
+    # Try to extract JSON from the response
     import re
     json_match = re.search(r'\{.*\}', content, re.DOTALL)
     if json_match:
