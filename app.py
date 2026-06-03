@@ -4,10 +4,18 @@ from graph import app
 from state import AgentState
 from dotenv import load_dotenv
 from datetime import datetime
+from typing import Dict, Any
 
 load_dotenv()
 
 today = datetime.now().date()
+
+@st.cache_data(show_spinner=False)
+def get_cached_itinerary(params: Dict[str, Any]):
+    """
+    Executes the travel planner graph and caches the final result.
+    """
+    return app.invoke(params)
 
 st.set_page_config(page_title="AI Travel Planner", page_icon="✈️")
 
@@ -75,31 +83,15 @@ if start_planning:
         status_container = st.container()
         itinerary_container = st.empty()
         
-        with st.status("🤖 AI Agents are working...", expanded=True) as status:
-            # We use stream to get updates from the graph nodes
-            for event in app.stream(initial_state):
-                for node, state in event.items():
-                    if node == "researcher":
-                        st.write(f"🔍 **Researcher** is finding options for {destination}...")
-                        if state.get("search_queries"):
-                            st.write("**Search Queries:**")
-                            for q in state["search_queries"]:
-                                st.write(f"- {q}")
-                    
-                    elif node == "planner":
-                        st.write("📋 **Planner** is building your itinerary...")
-                    
-                    elif node == "validator":
-                        st.write("✅ **Validator** is checking the budget and details...")
-                        itinerary = state.get("current_itinerary")
-                        if itinerary and itinerary.status == "Invalid":
-                            st.warning(f"Validation Note: {itinerary.validation_notes}")
-            
-            status.update(label="✅ Planning Complete!", state="complete", expanded=False)
-
-        # Final Itinerary Display
-        # We need the final state to display the itinerary
-        final_state = app.invoke(initial_state) # Note: invoking again for final result, ideally we'd capture state from stream
+        # Check if result is already in cache
+        # We use st.cache_data for the entire execution
+        final_state = get_cached_itinerary(initial_state)
+        
+        # If it was a new run, it might have taken time. 
+        # Note: st.cache_data will block until finished.
+        # To keep the "streaming" feel for new requests while still caching,
+        # we'd need a more complex setup. For now, this is a clean implementation.
+        
         itinerary = final_state.get("current_itinerary")
 
         if itinerary:
