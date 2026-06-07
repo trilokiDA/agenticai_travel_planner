@@ -1,17 +1,31 @@
-from typing import TypedDict, List, Optional
-from models import Itinerary
+from typing import TypedDict, List, Optional, Annotated, Any
+import operator
+
+def merge_if_not_none(old: Any, new: Any) -> Any:
+    """
+    Ensures state keys are preserved unless explicitly updated with a non-None value.
+    """
+    if new is not None:
+        return new
+    return old
 
 class AgentState(TypedDict):
-    destination: str
-    origin: str
-    travel_date: str
-    budget: float
-    currency: str
-    is_round_trip: bool
-    duration_days: int
-    search_queries: List[str]
-    raw_search_results: List[str]
-    current_itinerary: Optional[Itinerary]
-    iteration_count: int
-    max_iterations: int
-    error: Optional[str]
+    # Core trip details - Now sticky to prevent vanishing
+    destination: Annotated[str, merge_if_not_none]
+    origin: Annotated[str, merge_if_not_none]
+    travel_date: Annotated[str, merge_if_not_none]
+    budget: Annotated[float, merge_if_not_none]
+    currency: Annotated[str, merge_if_not_none]
+    is_round_trip: Annotated[bool, merge_if_not_none]
+    duration_days: Annotated[int, merge_if_not_none]
+    
+    # Lists that accumulate
+    search_queries: Annotated[List[str], operator.add]
+    raw_search_results: Annotated[List[str], operator.add]
+    
+    # Plan results - Also sticky
+    current_itinerary: Annotated[Optional[dict], merge_if_not_none]
+    iteration_count: Annotated[int, merge_if_not_none]
+    max_iterations: Annotated[int, merge_if_not_none]
+    error: Annotated[Optional[str], merge_if_not_none]
+    user_feedback: Annotated[Optional[str], merge_if_not_none]

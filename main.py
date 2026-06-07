@@ -1,8 +1,17 @@
-from graph import app
+from graph import workflow
 from state import AgentState
-import json
+from models import Itinerary
+from langgraph.checkpoint.memory import MemorySaver
+import uuid
 
-def run_planner(destination: str, origin: str, travel_date: str, budget: float, duration: int, is_round_trip: bool = True, currency: str = "USD"):
+def run_planner_cli(destination: str, origin: str, travel_date: str, budget: float, duration: int, is_round_trip: bool = True, currency: str = "USD"):
+    # Initialize the graph with a local checkpointer for the CLI
+    memory = MemorySaver()
+    app = workflow.compile(checkpointer=memory, interrupt_before=["human_review"])
+    
+    thread_id = str(uuid.uuid4())
+    config = {"configurable": {"thread_id": thread_id}}
+    
     initial_state: AgentState = {
         "destination": destination,
         "origin": origin,
@@ -16,47 +25,46 @@ def run_planner(destination: str, origin: str, travel_date: str, budget: float, 
         "current_itinerary": None,
         "iteration_count": 0,
         "max_iterations": 3,
-        "error": None
+        "error": None,
+        "user_feedback": None
     }
     
-    print(f"Starting travel planner for {destination} from {origin} on {travel_date} ({'Round Trip' if is_round_trip else 'One Way'}) with budget {budget} {currency}...")
+    print(f"Starting travel planner for {destination} from {origin} ({currency})...")
     
-    final_state = app.invoke(initial_state)
+    # Run until the Human Review breakpoint
+    app.invoke(initial_state, config)
     
-    if final_state.get("error"):
-        print(f"Error occurred: {final_state['error']}")
-        return
-
-    itinerary = final_state["current_itinerary"]
-    if itinerary:
+    # Get the state at the breakpoint
+    state = app.get_state(config)
+    itinerary_data = state.values.get("current_itinerary")
+    
+    if itinerary_data:
+        itinerary = Itinerary(**itinerary_data)
         print("\n" + "="*50)
-        print(f"FINAL ITINERARY FOR {itinerary.destination}")
-        print(f"Status: {itinerary.status}")
-        print(f"Total Budget: {itinerary.total_budget} {currency}")
+        print(f"DRAFT ITINERARY FOR {itinerary.destination}")
+        print(f"Total Budget: {budget} {currency}")
         print(f"Total Cost: {itinerary.total_cost} {currency}")
         print("="*50)
         
-        print("\nFLIGHTS:")
-        for f in itinerary.flights:
-            print(f"- {f.provider}: {f.origin} -> {f.destination} ({currency} {f.price})")
-            
-        print("\nHOTELS:")
-        for h in itinerary.hotels:
-            print(f"- {h.name}: {currency} {h.price_per_night}/night (Total: {currency} {h.total_price})")
-            
-        print("\nDAILY ACTIVITIES:")
-        for a in itinerary.activities:
-            print(f"Day {a.day_number}: {a.name} - {a.description} ({currency} {a.cost})")
-            
-        if itinerary.validation_notes:
-            print(f"\nNotes: {itinerary.validation_notes}")
-        print("="*50)
+        # Simple approval for CLI demo
+        print("\n(CLI Mode: Automatically approving draft...)")
+        app.update_state(config, {"user_feedback": "APPROVE"}, as_node="human_review")
+        app.invoke(None, config)
+        
+        # Get final state
+        final_state = app.get_state(config)
+        final_itinerary_data = final_state.values.get("current_itinerary")
+        
+        if final_itinerary_data:
+            final_itinerary = Itinerary(**final_itinerary_data)
+            print(f"\nFINAL STATUS: {final_itinerary.status}")
+            print(f"Final Cost: {final_itinerary.total_cost} {currency}")
+            print("="*50)
     else:
-        print("Failed to generate a valid itinerary.")
+        print("Failed to generate an itinerary.")
 
 if __name__ == "__main__":
-    # Example usage: Domestic travel within India in INR
-    run_planner(
+    run_planner_cli(
         destination="Goa",
         origin="Delhi",
         travel_date="June 2026",
