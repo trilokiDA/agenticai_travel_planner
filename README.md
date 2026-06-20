@@ -18,6 +18,7 @@ This project utilizes a **Multi-Agent Orchestration** workflow where the AI and 
 - **Sticky State Architecture**: Custom reducers ensure core configuration like budget and currency are never lost during the feedback loop.
 - **Dynamic Trip Selection**: Choose between **Round Trip** and **One Way** journeys with smart duration calculation.
 - **Currency Support**: Plan your trip in **INR** or **USD**.
+- **Version Control & Draft History**: View previous versions of your itinerary side-by-side with the current draft. Instantly roll back or restore any older version from the persistent checkpointer history.
 - **Rich UI**: Interactive **Streamlit** dashboard with a tabbed interface for easy browsing of flights, hotels, and daily schedules.
 
 ## 📁 Project Structure
