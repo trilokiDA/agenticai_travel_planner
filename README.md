@@ -20,6 +20,7 @@ This project utilizes a **Multi-Agent Orchestration** workflow where the AI and 
 - **Currency Support**: Plan your trip in **INR** or **USD**.
 - **Version Control & Draft History**: View previous versions of your itinerary side-by-side with the current draft. Instantly roll back or restore any older version from the persistent checkpointer history.
 - **Rich UI**: Interactive **Streamlit** dashboard with a tabbed interface for easy browsing of flights, hotels, and daily schedules.
+- **📅 Export to Calendar & PDF**: Instantly export your final itinerary as a standard `.ics` file for calendar integration (Google Calendar, iCal, Outlook) or download a premium, print-ready PDF containing detailed itineraries, metadata summary cards, and dynamic page numbering.
 
 ## 📁 Project Structure
 
@@ -29,6 +30,7 @@ travel_planner/v1/
 ├── graph.py         # LangGraph state machine & Collaborative logic
 ├── state.py         # Agent state schema with Sticky Reducers
 ├── models.py        # Pydantic data models (Itinerary, Flight, etc.)
+├── export.py        # PDF & iCalendar Export Engine
 ├── tools.py         # Search tool integration (Tavily)
 ├── main.py          # Legacy CLI entry point
 ├── .env             # API Key configuration

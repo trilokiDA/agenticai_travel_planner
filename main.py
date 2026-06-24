@@ -16,6 +16,7 @@ def run_planner_cli(destination: str, origin: str, travel_date: str, budget: flo
         "destination": destination,
         "origin": origin,
         "travel_date": travel_date,
+        "travel_start_date": "2026-06-01",
         "budget": budget,
         "currency": currency,
         "is_round_trip": is_round_trip,

@@ -4,3 +4,4 @@ pydantic==2.13.4
 tavily-python==0.7.24
 python-dotenv==1.2.2
 streamlit==1.42.1
+reportlab==5.0.0
