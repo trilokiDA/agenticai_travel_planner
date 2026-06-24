@@ -6,7 +6,7 @@ from state import AgentState
 from models import Itinerary, Flight, Hotel, Activity
 from dotenv import load_dotenv
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from langgraph.checkpoint.memory import MemorySaver
 
 def get_itinerary_history(planner_app, config):
@@ -107,6 +107,7 @@ with st.sidebar:
                 "destination": destination,
                 "origin": origin,
                 "travel_date": start_date.strftime("%B %Y"),
+                "travel_start_date": start_date.strftime("%Y-%m-%d"),
                 "budget": budget,
                 "currency": currency,
                 "is_round_trip": is_round_trip,
@@ -124,7 +125,7 @@ with st.sidebar:
                 st.session_state.current_state = planner_app.get_state(config)
 
 # Helper to display itinerary
-def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, duration: int):
+def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, duration: int, travel_start_date: Optional[str], origin: str, is_round_trip: bool):
     st.success(f"### 🎊 Itinerary for {itinerary.destination}")
     
     col1, col2, col3 = st.columns(3)
@@ -134,6 +135,46 @@ def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, dur
     
     if itinerary.validation_notes:
         st.warning(f"**Validation Notes:** {itinerary.validation_notes}")
+        
+    st.write("---")
+    st.markdown("##### 📤 Export Options")
+    exp_col1, exp_col2 = st.columns(2)
+    
+    from export import generate_ics, generate_pdf
+    
+    itinerary_dict = itinerary.model_dump()
+    itinerary_dict["duration_days"] = duration
+    itinerary_dict["currency"] = currency
+    itinerary_dict["origin"] = origin
+    itinerary_dict["is_round_trip"] = is_round_trip
+    
+    with exp_col1:
+        try:
+            pdf_data = generate_pdf(itinerary_dict, budget, currency, travel_start_date)
+            st.download_button(
+                label="📥 Download PDF Itinerary",
+                data=pdf_data,
+                file_name=f"itinerary_{itinerary.destination.lower().replace(' ', '_')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+        except Exception as e:
+            st.error(f"Failed to generate PDF: {e}")
+            
+    with exp_col2:
+        try:
+            ics_data = generate_ics(itinerary_dict, travel_start_date)
+            st.download_button(
+                label="📅 Export to Calendar (ICS)",
+                data=ics_data,
+                file_name=f"itinerary_{itinerary.destination.lower().replace(' ', '_')}.ics",
+                mime="text/calendar",
+                use_container_width=True
+            )
+        except Exception as e:
+            st.error(f"Failed to generate ICS Calendar: {e}")
+            
+    st.write("---")
     
     tab1, tab2, tab3 = st.tabs(["✈️ Flights", "🏨 Hotels", "📅 Daily Schedule"])
     
@@ -172,7 +213,10 @@ if st.session_state.current_state:
             itinerary, 
             state_values.get('budget', 0.0), 
             state_values.get('currency', 'USD'), 
-            state_values.get('duration_days', 1)
+            state_values.get('duration_days', 1),
+            state_values.get('travel_start_date'),
+            state_values.get('origin', 'Origin'),
+            state_values.get('is_round_trip', True)
         )
         
         # --- Version History & Comparison Section ---

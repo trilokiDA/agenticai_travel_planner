@@ -14,6 +14,7 @@ class AgentState(TypedDict):
     destination: Annotated[str, merge_if_not_none]
     origin: Annotated[str, merge_if_not_none]
     travel_date: Annotated[str, merge_if_not_none]
+    travel_start_date: Annotated[Optional[str], merge_if_not_none]
     budget: Annotated[float, merge_if_not_none]
     currency: Annotated[str, merge_if_not_none]
     is_round_trip: Annotated[bool, merge_if_not_none]
