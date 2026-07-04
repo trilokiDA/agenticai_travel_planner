@@ -109,6 +109,11 @@ travel_planner/v1/
    ```env
    GROQ_API_KEY=your_groq_api_key
    TAVILY_API_KEY=your_tavily_api_key
+
+   # (Optional) LangSmith Tracing & Observability
+   LANGCHAIN_TRACING_V2=true
+   LANGCHAIN_API_KEY=your_langsmith_api_key
+   LANGCHAIN_PROJECT="AI Travel Planner"
    ```
 
 2. **Install Dependencies**:
@@ -132,3 +137,5 @@ streamlit run app.py
 - **Llama 3.3 (Groq)**: High-speed, high-quality reasoning for structured itinerary generation.
 - **Pydantic**: Ensures strict data integrity for all output models.
 - **Surgical Prompting**: Context-aware prompts that allow the LLM to differentiate between "Generating" and "Refining" modes.
+- **LangSmith Tracing**: Integrated out-of-the-box observability to trace agent runs, latencies, tokens, and checkpointer changes.
+
