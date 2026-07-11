@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import uuid
 import json
+import pandas as pd
 from state import AgentState
 from models import Itinerary, Flight, Hotel, Activity
 from dotenv import load_dotenv
@@ -136,6 +137,96 @@ def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, dur
     if itinerary.validation_notes:
         st.warning(f"**Validation Notes:** {itinerary.validation_notes}")
         
+    st.write("---")
+    
+    # --- Budget Breakdown & Analytics Section ---
+    st.subheader("📊 Budget Breakdown & Analytics")
+    
+    # Calculate costs per category
+    flight_cost = sum(f.price for f in itinerary.flights)
+    hotel_cost = sum(h.total_price for h in itinerary.hotels)
+    activity_cost = sum(a.cost for a in itinerary.activities)
+    total_cost = flight_cost + hotel_cost + activity_cost
+    
+    # Calculate budget utilization
+    pct_used = min(total_cost / budget, 2.0) if budget > 0 else 0.0
+    pct_label = f"{total_cost / budget * 100:.1f}%" if budget > 0 else "0%"
+    
+    # Set progress bar color and messages based on utilization
+    if pct_used <= 0.8:
+        progress_color = "#10B981"  # Emerald Green
+        status_text = "Good! Well within budget."
+    elif pct_used <= 1.0:
+        progress_color = "#F59E0B"  # Amber Orange
+        status_text = "Caution! Nearing budget limit."
+    else:
+        progress_color = "#EF4444"  # Red
+        status_text = "Alert! Over budget."
+        
+    # HTML custom progress bar with rich styling
+    st.markdown(f"""
+        <div style="margin-bottom: 20px; background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 15px; border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-weight: 600; font-size: 0.95rem; color: #1E293B;">Budget Utilization: <strong>{pct_label}</strong></span>
+                <span style="font-size: 0.9rem; color: {progress_color}; font-weight: bold;">{status_text}</span>
+            </div>
+            <div style="background-color: #E2E8F0; border-radius: 9999px; height: 14px; width: 100%; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);">
+                <div style="background-color: {progress_color}; height: 100%; width: {pct_used * 100}%; border-radius: 9999px; transition: width 0.5s ease-in-out;"></div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    chart_col, data_col = st.columns([2, 1])
+    
+    with chart_col:
+        # Create categories data for Altair chart in Streamlit
+        chart_data = pd.DataFrame({
+            "Category": ["Flights", "Hotels", "Activities"],
+            "Cost": [flight_cost, hotel_cost, activity_cost]
+        })
+        
+        # Display Streamlit native bar chart
+        st.bar_chart(
+            chart_data, 
+            x="Category", 
+            y="Cost", 
+            color="Category",
+            x_label="Expense Category",
+            y_label=f"Cost ({currency})",
+            use_container_width=True
+        )
+        
+    with data_col:
+        st.markdown("<p style='font-size: 1rem; font-weight: bold; margin-bottom: 10px; color: #0F172A;'>Expense Summary</p>", unsafe_allow_html=True)
+        
+        breakdown_html = f"""
+        <table style="width:100%; border-collapse: collapse; font-family: sans-serif; font-size: 0.95rem; margin-bottom: 15px;">
+            <tr style="border-bottom: 1px solid #E2E8F0; height: 38px;">
+                <td style="font-weight: 500; color: #475569;">✈️ Flights</td>
+                <td style="text-align: right; font-weight: 600; color: #1E293B;">{flight_cost:,.2f} {currency}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #E2E8F0; height: 38px;">
+                <td style="font-weight: 500; color: #475569;">🏨 Hotels</td>
+                <td style="text-align: right; font-weight: 600; color: #1E293B;">{hotel_cost:,.2f} {currency}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #E2E8F0; height: 38px;">
+                <td style="font-weight: 500; color: #475569;">📍 Activities</td>
+                <td style="text-align: right; font-weight: 600; color: #1E293B;">{activity_cost:,.2f} {currency}</td>
+            </tr>
+            <tr style="height: 45px; border-top: 2px solid #CBD5E1;">
+                <td style="font-weight: bold; color: #0F172A;">Total Spend</td>
+                <td style="text-align: right; font-weight: bold; font-size: 1.1rem; color: {progress_color if pct_used > 1.0 else '#0F172A'};">{total_cost:,.2f} {currency}</td>
+            </tr>
+        </table>
+        """
+        st.markdown(breakdown_html, unsafe_allow_html=True)
+        
+        remaining = budget - total_cost
+        if remaining >= 0:
+            st.success(f"💰 Remaining: **{remaining:,.2f} {currency}**")
+        else:
+            st.error(f"⚠️ Over Budget by: **{abs(remaining):,.2f} {currency}**")
+            
     st.write("---")
     st.markdown("##### 📤 Export Options")
     exp_col1, exp_col2 = st.columns(2)
