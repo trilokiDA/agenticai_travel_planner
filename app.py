@@ -74,6 +74,18 @@ if "thread_id" not in st.session_state:
 if "current_state" not in st.session_state:
     st.session_state.current_state = None
 
+if "loaded_values" not in st.session_state:
+    st.session_state.loaded_values = None
+
+# Apply loaded values to widget keys before widgets are instantiated on the next run
+if st.session_state.loaded_values is not None:
+    st.session_state.dest = st.session_state.loaded_values["destination"]
+    st.session_state.orig = st.session_state.loaded_values["origin"]
+    st.session_state.budget_val = st.session_state.loaded_values["budget"]
+    st.session_state.currency_val = st.session_state.loaded_values["currency"]
+    # Clear the temporary storage
+    st.session_state.loaded_values = None
+
 # Sidebar for inputs
 with st.sidebar:
     st.header("Trip Details")
@@ -93,8 +105,8 @@ with st.sidebar:
         duration = st.slider("Duration (Days)", min_value=1, max_value=14, value=3)
         is_round_trip = False
         
-    budget = st.number_input("Budget", min_value=1.0, value=50000.0)
-    currency = st.selectbox("Currency", options=["INR", "USD"], index=0)
+    budget = st.number_input("Budget", min_value=1.0, value=50000.0, key="budget_val")
+    currency = st.selectbox("Currency", options=["INR", "USD"], index=0, key="currency_val")
     
     if st.button("Start New Planning"):
         st.session_state.thread_id = str(uuid.uuid4())
@@ -124,6 +136,100 @@ with st.sidebar:
             with st.spinner("Researching and planning..."):
                 planner_app.invoke(initial_state, config)
                 st.session_state.current_state = planner_app.get_state(config)
+                
+    st.markdown("---")
+    st.subheader("💾 Save & Load Plan")
+    
+    # 1. Save / Download current itinerary
+    has_active_itinerary = (
+        st.session_state.current_state is not None 
+        and st.session_state.current_state.values.get("current_itinerary") is not None
+    )
+    
+    if has_active_itinerary:
+        state_vals = st.session_state.current_state.values
+        itinerary_data = state_vals.get("current_itinerary")
+        dest_clean = itinerary_data.get("destination", "trip").lower().replace(" ", "_")
+        
+        # Prepare state values to save
+        save_data = {
+            "destination": state_vals.get("destination"),
+            "origin": state_vals.get("origin"),
+            "travel_date": state_vals.get("travel_date"),
+            "travel_start_date": state_vals.get("travel_start_date"),
+            "budget": state_vals.get("budget"),
+            "currency": state_vals.get("currency"),
+            "is_round_trip": state_vals.get("is_round_trip"),
+            "duration_days": state_vals.get("duration_days"),
+            "search_queries": state_vals.get("search_queries", []),
+            "raw_search_results": state_vals.get("raw_search_results", []),
+            "current_itinerary": state_vals.get("current_itinerary"),
+            "iteration_count": state_vals.get("iteration_count", 0),
+            "max_iterations": state_vals.get("max_iterations", 3),
+            "error": state_vals.get("error"),
+            "user_feedback": state_vals.get("user_feedback")
+        }
+        json_str = json.dumps(save_data, indent=2, default=str)
+        
+        st.download_button(
+            label="📥 Export Plan (JSON)",
+            data=json_str,
+            file_name=f"itinerary_{dest_clean}.json",
+            mime="application/json",
+            use_container_width=True
+        )
+    else:
+        st.info("Start planning to enable download.")
+        
+    st.markdown("---")
+    
+    # 2. Load itinerary from JSON file
+    uploaded_file = st.file_uploader("Import Saved Plan (.json)", type=["json"])
+    if uploaded_file is not None:
+        try:
+            loaded_vals = json.loads(uploaded_file.read().decode("utf-8"))
+            
+            # Validation
+            required_keys = ["destination", "origin", "current_itinerary"]
+            if not all(k in loaded_vals for k in required_keys):
+                st.error("Invalid itinerary file format.")
+            else:
+                if st.button("🚀 Load Itinerary", type="primary", use_container_width=True):
+                    # Sanitize loaded values to fit AgentState
+                    sanitized_vals = {
+                        "destination": loaded_vals.get("destination"),
+                        "origin": loaded_vals.get("origin"),
+                        "travel_date": loaded_vals.get("travel_date"),
+                        "travel_start_date": loaded_vals.get("travel_start_date"),
+                        "budget": loaded_vals.get("budget", 50000.0),
+                        "currency": loaded_vals.get("currency", "USD"),
+                        "is_round_trip": loaded_vals.get("is_round_trip", True),
+                        "duration_days": loaded_vals.get("duration_days", 1),
+                        "search_queries": loaded_vals.get("search_queries", []),
+                        "raw_search_results": loaded_vals.get("raw_search_results", []),
+                        "current_itinerary": loaded_vals.get("current_itinerary"),
+                        "iteration_count": loaded_vals.get("iteration_count", 0),
+                        "max_iterations": loaded_vals.get("max_iterations", 3),
+                        "error": loaded_vals.get("error"),
+                        "user_feedback": loaded_vals.get("user_feedback")
+                    }
+                    
+                    # Generate a new unique thread ID to avoid state collision
+                    st.session_state.thread_id = str(uuid.uuid4())
+                    config = {"configurable": {"thread_id": st.session_state.thread_id}}
+                    
+                    # Store sanitized values in temporary session state to synchronize widgets on rerun
+                    st.session_state.loaded_values = sanitized_vals
+                    
+                    # Pre-populate checkpoint memory with the loaded state values
+                    planner_app.update_state(config, sanitized_vals, as_node="human_review")
+                    
+                    # Update session state with the restored state
+                    st.session_state.current_state = planner_app.get_state(config)
+                    st.success("Plan loaded successfully!")
+                    st.rerun()
+        except Exception as e:
+            st.error(f"Error loading file: {e}")
 
 # Helper to display itinerary
 def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, duration: int, travel_start_date: Optional[str], origin: str, is_round_trip: bool):
