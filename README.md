@@ -84,6 +84,7 @@ graph TD;
 - **Dynamic Trip Selection**: Choose between **Round Trip** and **One Way** journeys with smart duration calculation.
 - **Currency Support**: Plan your trip in **INR** or **USD**.
 - **Version Control & Draft History**: View previous versions of your itinerary side-by-side with the current draft. Instantly roll back or restore any older version from the persistent checkpointer history.
+- **💾 Save & Load Itineraries**: Directly export your active travel plans to local JSON files. You can import them back later to restore the exact graph checkpointer state, resume refinement, and auto-populate all dashboard inputs.
 - **📊 Visual Budget Breakdown & Analytics**: Real-time interactive charts (using Pandas and Streamlit native charting) showing expense distribution across Flights, Hotels, and Activities, along with a color-coded budget utilization progress bar (Green, Amber, Red).
 - **Rich UI**: Interactive **Streamlit** dashboard with a tabbed interface for easy browsing of flights, hotels, and daily schedules.
 - **📅 Export to Calendar & PDF**: Instantly export your final itinerary as a standard `.ics` file for calendar integration (Google Calendar, iCal, Outlook) or download a premium, print-ready PDF containing detailed itineraries, metadata summary cards, and dynamic page numbering.
