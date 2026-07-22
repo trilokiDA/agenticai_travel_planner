@@ -19,6 +19,7 @@ class AgentState(TypedDict):
     currency: Annotated[str, merge_if_not_none]
     is_round_trip: Annotated[bool, merge_if_not_none]
     duration_days: Annotated[int, merge_if_not_none]
+    activity_preferences: Annotated[List[str], merge_if_not_none]
     
     # Lists that accumulate
     search_queries: Annotated[List[str], operator.add]

@@ -6,7 +6,7 @@ import pandas as pd
 from state import AgentState
 from models import Itinerary, Flight, Hotel, Activity
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timedelta, date
 from typing import Dict, Any, Optional
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -52,6 +52,85 @@ today = datetime.now().date()
 
 st.set_page_config(page_title="AI Travel Planner", page_icon="✈️", layout="wide")
 
+# Custom CSS for modern, premium styling
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+    /* Global Font & Smooth Scaling */
+    html, body, [class*="css"], .stApp {
+        font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    
+    /* Clean Sidebar Styling */
+    [data-testid="stSidebar"] {
+        background-color: #0F172A;
+        border-right: 1px solid #1E293B;
+    }
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p, 
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] span,
+    [data-testid="stSidebar"] label {
+        color: #E2E8F0 !important;
+        font-weight: 500;
+    }
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+        color: #FFFFFF !important;
+    }
+    
+    /* Primary buttons styling */
+    div.stButton > button {
+        background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 8px 20px !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2), 0 2px 4px -1px rgba(37, 99, 235, 0.1) !important;
+    }
+    div.stButton > button:hover {
+        background: linear-gradient(135deg, #60A5FA 0%, #2563EB 100%) !important;
+        box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3), 0 4px 6px -2px rgba(37, 99, 235, 0.15) !important;
+        transform: translateY(-1px) !important;
+    }
+    
+    /* Secondary/Reset buttons styling */
+    div.stButton > button[kind="secondary"] {
+        background: #1E293B !important;
+        border: 1px solid #334155 !important;
+        color: #F8FAFC !important;
+    }
+    div.stButton > button[kind="secondary"]:hover {
+        background: #334155 !important;
+        color: white !important;
+    }
+    
+    /* Clean metrics cards with subtle shadow and border */
+    div[data-testid="metric-container"] {
+        background-color: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 15px 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s ease;
+    }
+    div[data-testid="metric-container"]:hover {
+        transform: translateY(-2px);
+    }
+    div[data-testid="metric-container"] [data-testid="stMetricValue"] {
+        color: #1E3A8A !important;
+        font-weight: 700;
+    }
+    
+    /* Modern Tabs layout */
+    button[data-baseweb="tab"] {
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+        padding: 12px 20px !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("✈️ AI Travel Planner")
 st.markdown("Plan your next adventure with Human-in-the-loop AI agents!")
 
@@ -83,6 +162,28 @@ if st.session_state.loaded_values is not None:
     st.session_state.orig = st.session_state.loaded_values["origin"]
     st.session_state.budget_val = st.session_state.loaded_values["budget"]
     st.session_state.currency_val = st.session_state.loaded_values["currency"]
+    st.session_state.activity_prefs_val = st.session_state.loaded_values.get("activity_preferences", [])
+    
+    # Restore Trip Type
+    is_round_trip = st.session_state.loaded_values.get("is_round_trip", True)
+    st.session_state.trip_type_radio = "Round Trip" if is_round_trip else "One Way"
+    
+    # Restore Start Date and End Date / Duration
+    start_date_str = st.session_state.loaded_values.get("travel_start_date")
+    duration_days = st.session_state.loaded_values.get("duration_days", 3)
+    
+    if start_date_str:
+        try:
+            start_date_parsed = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            st.session_state.start_date_val = start_date_parsed
+            
+            if is_round_trip:
+                end_date_parsed = start_date_parsed + timedelta(days=duration_days - 1)
+                st.session_state.end_date_val = end_date_parsed
+            else:
+                st.session_state.duration_val = int(duration_days)
+        except Exception:
+            pass
     # Clear the temporary storage
     st.session_state.loaded_values = None
 
@@ -92,21 +193,66 @@ with st.sidebar:
     destination = st.text_input("Destination", placeholder="Paris, Goa", key="dest")
     origin = st.text_input("Origin", placeholder="London, Delhi", key="orig")
     
-    trip_type = st.radio("Trip Type", ["Round Trip", "One Way"], index=0)
+    # Dynamically determine min_value to allow loaded dates in the past without Streamlit crashes
+    loaded_start_date = st.session_state.get("start_date_val")
+    min_val_start = today
+    if loaded_start_date and isinstance(loaded_start_date, date) and loaded_start_date < today:
+        min_val_start = loaded_start_date
+
+    trip_type = st.radio("Trip Type", ["Round Trip", "One Way"], index=0, key="trip_type_radio")
     
     if trip_type == "Round Trip":
         col1, col2 = st.columns(2)
-        start_date = col1.date_input("Start Date", value=None, min_value=today)
-        end_date = col2.date_input("End Date", value=None, min_value=start_date if start_date else today)
+        start_date = col1.date_input(
+            "Start Date", 
+            value=st.session_state.get("start_date_val", None), 
+            min_value=min_val_start,
+            key="start_date_val"
+        )
+        
+        # Determine min_value for end_date dynamically
+        loaded_end_date = st.session_state.get("end_date_val")
+        min_val_end = start_date if start_date else today
+        if loaded_end_date and isinstance(loaded_end_date, date):
+            if start_date and loaded_end_date < start_date:
+                min_val_end = loaded_end_date
+            elif not start_date and loaded_end_date < today:
+                min_val_end = loaded_end_date
+                
+        end_date = col2.date_input(
+            "End Date", 
+            value=st.session_state.get("end_date_val", None), 
+            min_value=min_val_end,
+            key="end_date_val"
+        )
         duration = (end_date - start_date).days + 1 if start_date and end_date else 0
         is_round_trip = True
     else:
-        start_date = st.date_input("Start Date", value=None, min_value=today)
-        duration = st.slider("Duration (Days)", min_value=1, max_value=14, value=3)
+        start_date = st.date_input(
+            "Start Date", 
+            value=st.session_state.get("start_date_val", None), 
+            min_value=min_val_start,
+            key="start_date_val"
+        )
+        duration = st.slider(
+            "Duration (Days)", 
+            min_value=1, 
+            max_value=14, 
+            value=st.session_state.get("duration_val", 3),
+            key="duration_val"
+        )
         is_round_trip = False
         
     budget = st.number_input("Budget", min_value=1.0, value=50000.0, key="budget_val")
     currency = st.selectbox("Currency", options=["INR", "USD"], index=0, key="currency_val")
+    
+    # Activity Customization Preferences
+    activity_prefs = st.multiselect(
+        "Activity Preferences", 
+        options=["Adventure", "Cultural", "Relaxation", "Food & Dining", "Nature & Outdoors", "Shopping", "Nightlife"],
+        default=st.session_state.get("activity_prefs_val", []),
+        key="activity_prefs_val"
+    )
     
     if st.button("Start New Planning"):
         st.session_state.thread_id = str(uuid.uuid4())
@@ -125,6 +271,7 @@ with st.sidebar:
                 "currency": currency,
                 "is_round_trip": is_round_trip,
                 "duration_days": duration,
+                "activity_preferences": activity_prefs,
                 "search_queries": [],
                 "raw_search_results": [],
                 "current_itinerary": None,
@@ -161,6 +308,7 @@ with st.sidebar:
             "currency": state_vals.get("currency"),
             "is_round_trip": state_vals.get("is_round_trip"),
             "duration_days": state_vals.get("duration_days"),
+            "activity_preferences": state_vals.get("activity_preferences", []),
             "search_queries": state_vals.get("search_queries", []),
             "raw_search_results": state_vals.get("raw_search_results", []),
             "current_itinerary": state_vals.get("current_itinerary"),
@@ -205,6 +353,7 @@ with st.sidebar:
                         "currency": loaded_vals.get("currency", "USD"),
                         "is_round_trip": loaded_vals.get("is_round_trip", True),
                         "duration_days": loaded_vals.get("duration_days", 1),
+                        "activity_preferences": loaded_vals.get("activity_preferences", []),
                         "search_queries": loaded_vals.get("search_queries", []),
                         "raw_search_results": loaded_vals.get("raw_search_results", []),
                         "current_itinerary": loaded_vals.get("current_itinerary"),
@@ -232,9 +381,13 @@ with st.sidebar:
             st.error(f"Error loading file: {e}")
 
 # Helper to display itinerary
-def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, duration: int, travel_start_date: Optional[str], origin: str, is_round_trip: bool):
+def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, duration: int, travel_start_date: Optional[str], origin: str, is_round_trip: bool, activity_preferences: Optional[list] = None):
     st.success(f"### 🎊 Itinerary for {itinerary.destination}")
     
+    if activity_preferences:
+        badge_html = "".join([f'<span style="background-color: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE; border-radius: 9999px; padding: 4px 12px; margin-right: 8px; font-size: 0.85rem; font-weight: 500; display: inline-block; margin-bottom: 10px;">🏷️ {pref}</span>' for pref in activity_preferences])
+        st.markdown(f'<div style="margin-top: -10px; margin-bottom: 15px;">{badge_html}</div>', unsafe_allow_html=True)
+        
     col1, col2, col3 = st.columns(3)
     col1.metric("Total Budget", f"{budget} {currency}")
     col2.metric("Total Cost", f"{itinerary.total_cost} {currency}")
@@ -344,6 +497,7 @@ def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, dur
     itinerary_dict["currency"] = currency
     itinerary_dict["origin"] = origin
     itinerary_dict["is_round_trip"] = is_round_trip
+    itinerary_dict["activity_preferences"] = itinerary_dict.get("activity_preferences") or state_values.get("activity_preferences", [])
     
     with exp_col1:
         try:
@@ -392,10 +546,12 @@ def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, dur
     with tab3:
         for day in range(1, duration + 1):
             day_activities = [a for a in itinerary.activities if a.day_number == day]
-            if day_activities:
-                with st.expander(f"Day {day}"):
+            with st.expander(f"📅 Day {day}", expanded=(day == 1)):
+                if day_activities:
                     for a in day_activities:
                         st.write(f"📍 **{a.name}** - {a.description} (**{currency} {a.cost}**)")
+                else:
+                    st.caption("No activities scheduled for this day. Relax or explore the local area!")
 
 # Display Logic
 if st.session_state.current_state:
@@ -413,7 +569,8 @@ if st.session_state.current_state:
             state_values.get('duration_days', 1),
             state_values.get('travel_start_date'),
             state_values.get('origin', 'Origin'),
-            state_values.get('is_round_trip', True)
+            state_values.get('is_round_trip', True),
+            state_values.get('activity_preferences', [])
         )
         
         # --- Version History & Comparison Section ---
