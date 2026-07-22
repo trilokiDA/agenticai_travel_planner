@@ -21,6 +21,7 @@ def run_planner_cli(destination: str, origin: str, travel_date: str, budget: flo
         "currency": currency,
         "is_round_trip": is_round_trip,
         "duration_days": duration,
+        "activity_preferences": [],
         "search_queries": [],
         "raw_search_results": [],
         "current_itinerary": None,

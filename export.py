@@ -302,10 +302,15 @@ def generate_pdf(itinerary: Dict[str, Any], budget: float, currency: str, start_
         [
             Paragraph(f"<b>Duration:</b> {duration} Days", body_style),
             Paragraph(f"<b>Trip Type:</b> {'Round Trip' if is_round_trip else 'One Way'}", body_style)
+        ],
+        [
+            Paragraph(f"<b>Preferences:</b> {', '.join(itinerary.get('activity_preferences', [])) or 'None selected'}", body_style),
+            Paragraph("", body_style)
         ]
     ]
     metadata_table = Table(metadata_data, colWidths=[252, 252])
     metadata_table.setStyle(TableStyle([
+        ('SPAN', (0, 4), (1, 4)),
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F1F5F9")),
         ('ALIGN', (0,0), (-1,-1), 'LEFT'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
