@@ -1,10 +1,18 @@
-import streamlit as st
+import sys
 import os
+
+# Ensure the project root (v1/) is in sys.path so `src.*` imports work
+# when Streamlit runs this file directly from any working directory.
+_project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
+import streamlit as st
 import uuid
 import json
 import pandas as pd
-from state import AgentState
-from models import Itinerary, Flight, Hotel, Activity
+from src.agents.state import AgentState
+from src.agents.models import Itinerary, Flight, Hotel, Activity
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, date
 from typing import Dict, Any, Optional
@@ -137,7 +145,7 @@ st.markdown("Plan your next adventure with Human-in-the-loop AI agents!")
 # PERSISTENCE FIX: Cache the entire app AND its checkpointer to survive Streamlit reruns
 @st.cache_resource
 def get_planner_app():
-    from graph import workflow
+    from src.agents.graph import workflow
     checkpointer = MemorySaver()
     return workflow.compile(
         checkpointer=checkpointer,
@@ -490,7 +498,7 @@ def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, dur
     st.markdown("##### 📤 Export Options")
     exp_col1, exp_col2 = st.columns(2)
     
-    from export import generate_ics, generate_pdf
+    from src.utils.export_engine import generate_ics, generate_pdf
     
     itinerary_dict = itinerary.model_dump()
     itinerary_dict["duration_days"] = duration
@@ -527,7 +535,9 @@ def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, dur
             
     st.write("---")
     
-    tab1, tab2, tab3 = st.tabs(["✈️ Flights", "🏨 Hotels", "📅 Daily Schedule"])
+    # We use local references to tabs since st.tabs returns them in order
+    tabs = st.tabs(["✈️ Flights", "🏨 Hotels", "📅 Daily Schedule"])
+    tab1, tab2, tab3 = tabs[0], tabs[1], tabs[2]
     
     with tab1:
         for f in itinerary.flights:

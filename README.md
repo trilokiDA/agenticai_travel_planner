@@ -96,15 +96,24 @@ graph TD;
 
 ```text
 travel_planner/v1/
-├── app.py           # Streamlit Web Interface (with Cached Persistence)
-├── graph.py         # LangGraph state machine & Collaborative logic
-├── state.py         # Agent state schema with Sticky Reducers
-├── models.py        # Pydantic data models (Itinerary, Flight, etc.)
-├── export.py        # PDF & iCalendar Export Engine
-├── tools.py         # Search tool integration (Tavily)
-├── main.py          # Legacy CLI entry point
-├── .env             # API Key configuration
-└── requirements.txt # Project dependencies
+├── src/
+│   ├── __init__.py
+│   ├── agents/
+│   │   ├── __init__.py
+│   │   ├── graph.py         # LangGraph state machine & Collaborative logic
+│   │   ├── state.py         # Agent state schema with Sticky Reducers
+│   │   ├── models.py        # Pydantic data models (Itinerary, Flight, etc.)
+│   │   └── prompts.py       # Prompt definitions isolated from graph logic
+│   ├── tools/
+│   │   ├── __init__.py
+│   │   └── travel_tools.py  # Search tool integration (Tavily)
+│   └── utils/
+│       ├── __init__.py
+│       └── export_engine.py # PDF & iCalendar Export Engine
+├── app.py                   # Streamlit Web Interface (with Cached Persistence)
+├── main.py                  # CLI entry point
+├── .env                     # API Key configuration
+└── requirements.txt         # Project dependencies
 ```
 
 ## 🛠️ Setup & Installation

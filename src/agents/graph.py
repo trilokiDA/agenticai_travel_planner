@@ -3,9 +3,11 @@ from typing import Literal
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, END
-from state import AgentState
-from models import Itinerary, Flight, Hotel, Activity
-from tools import search_travel
+
+from src.agents.state import AgentState
+from src.agents.models import Itinerary, Flight, Hotel, Activity
+from src.agents.prompts import get_planner_prompt
+from src.tools.travel_tools import search_travel
 import json
 
 load_dotenv()
@@ -83,43 +85,19 @@ def planner(state: AgentState):
     if user_feedback:
         feedback_instruction = f"\nUSER FEEDBACK TO INCORPORATE: '{user_feedback}'"
 
-    prompt = f"""
-    You are an expert travel planner. You are currently {mode} a travel itinerary.
-    
-    TRIP DETAILS:
-    Destination: {destination}
-    Budget: {budget} {currency}
-    Origin: {origin}
-    Duration: {duration} days
-    Trip Type: {trip_type_str}
-    
-    {existing_itinerary_context}
-    {feedback_instruction}
-    
-    SEARCH RESULTS (Use these for prices and details):
-    {raw_data}
-    
-    CRITICAL INSTRUCTIONS:
-    1. USE REAL DATA: Extract specific hotels, flights, and activities from the Search Results. 
-    2. NO PLACEHOLDERS: Do not use "Not selected yet" or "..." in the final JSON. If search results contain multiple options, pick the best one within budget.
-    3. PRESERVATION: If {mode} is REFINING, keep all parts of the CURRENT ITINERARY DRAFT that are not affected by the user feedback. Specifically, keep hotel ratings and flight providers stable unless changes are requested.
-    4. ACCURACY: For each hotel, ensure the 'total_price' is exactly equal to 'price_per_night' multiplied by the trip duration ({duration} days). Ensure the 'total_cost' of the itinerary is the exact sum of all flights, all hotels' 'total_price', and all activities. Double check your math!
-    5. REAL PRICES: If prices are higher than the budget, report the REAL price found. Let the validator handle budget issues.
-    
-    Provide the output in STRICT JSON format matching the structure below:
-    {{
-        "destination": "{destination}",
-        "total_budget": {budget},
-        "total_cost": 0.0,
-        "flights": [{{ "origin": "{origin}", "destination": "{destination}", "price": 0.0, "provider": "Airline Name", "details": "Flight details" }}],
-        "hotels": [{{ "name": "Hotel Name", "price_per_night": 0.0, "total_price": 0.0, "rating": 4.5, "location": "Neighborhood" }}],
-        "activities": [
-            {{ "name": "Activity Name", "description": "Description", "cost": 0.0, "day_number": 1 }}
-        ],
-        "status": "Draft",
-        "validation_notes": "Mention here if real prices exceed budget or if data was missing."
-    }}
-    """
+    # Fetch prompt from separated prompt module
+    prompt = get_planner_prompt(
+        mode=mode,
+        destination=destination,
+        budget=budget,
+        currency=currency,
+        origin=origin,
+        duration=duration,
+        trip_type_str=trip_type_str,
+        existing_itinerary_context=existing_itinerary_context,
+        feedback_instruction=feedback_instruction,
+        raw_data=raw_data
+    )
     
     response = llm.invoke(prompt)
     content = response.content

@@ -285,7 +285,7 @@ def generate_pdf(itinerary: Dict[str, Any], budget: float, currency: str, start_
     story.append(Paragraph(f"Itinerary: {destination}", title_style))
     story.append(Paragraph(f"Created on {datetime.now().strftime('%B %d, %Y')} | Persistent Thread Plan Draft", subtitle_style))
     
-    # 2. Metadata Info Card (2 columns, 4 rows)
+    # 2. Metadata Info Card (2 columns, 5 rows)
     metadata_data = [
         [
             Paragraph(f"<b>Destination:</b> {destination}", body_style),
