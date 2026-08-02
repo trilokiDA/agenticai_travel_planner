@@ -1,5 +1,6 @@
 import sys
 import os
+import plotly.graph_objects as go
 
 # Ensure the project root (v1/) is in sys.path so `src.*` imports work
 # when Streamlit runs this file directly from any working directory.
@@ -536,8 +537,8 @@ def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, dur
     st.write("---")
     
     # We use local references to tabs since st.tabs returns them in order
-    tabs = st.tabs(["✈️ Flights", "🏨 Hotels", "📅 Daily Schedule"])
-    tab1, tab2, tab3 = tabs[0], tabs[1], tabs[2]
+    tabs = st.tabs(["✈️ Flights", "🏨 Hotels", "📅 Daily Schedule", "🗺️ Route Map"])
+    tab1, tab2, tab3, tab4 = tabs[0], tabs[1], tabs[2], tabs[3]
     
     with tab1:
         for f in itinerary.flights:
@@ -562,6 +563,86 @@ def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, dur
                         st.write(f"📍 **{a.name}** - {a.description} (**{currency} {a.cost}**)")
                 else:
                     st.caption("No activities scheduled for this day. Relax or explore the local area!")
+
+    with tab4:
+        from src.utils.map_engine import build_route_map
+
+        st.markdown(
+            """
+            <div style="background: linear-gradient(135deg, #1E3A5F 0%, #0F172A 100%);
+                        border: 1px solid #334155; border-radius: 10px;
+                        padding: 12px 18px; margin-bottom: 16px;">
+                <span style="color:#94A3B8; font-size:0.9rem;">
+                    🌐 Map data powered by <strong style="color:#E2E8F0;">OpenStreetMap / Nominatim</strong>
+                    — 100% free, no API key required.
+                    Geocoding may take a few seconds.
+                </span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # Legend key
+        legend_html = """
+        <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:14px;">
+            <span style="color:#22C55E;">★ Destination</span>
+            <span style="color:#A855F7;">■ Origin</span>
+            <span style="color:#3B82F6;">● Hotel</span>
+            <span style="color:#F97316;">◆ Activity</span>
+            <span style="color:#0A0A0A; font-weight:800;">— Route</span>
+        </div>
+        """
+        st.markdown(legend_html, unsafe_allow_html=True)
+
+        with st.spinner("📡 Geocoding locations via OpenStreetMap..."):
+            itinerary_dict_for_map = itinerary.model_dump()
+            fig = build_route_map(
+                itinerary_dict=itinerary_dict_for_map,
+                destination=itinerary.destination,
+                origin=origin,
+            )
+
+        st.plotly_chart(fig, use_container_width=True, config={
+            "scrollZoom": True,
+            "displayModeBar": True,
+            "modeBarButtonsToRemove": ["lasso2d", "select2d"],
+            "toImageButtonOptions": {
+                "format": "png",
+                "filename": f"route_map_{itinerary.destination.lower().replace(' ', '_')}",
+                "height": 600,
+                "width": 1000,
+                "scale": 2
+            }
+        })
+
+        # Stats below the map
+        num_hotels = len(itinerary.hotels)
+        num_activities = len(set(a.name for a in itinerary.activities))
+        st.markdown(
+            f"""
+            <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:10px;">
+                <div style="background:#1E293B; border:1px solid #334155; border-radius:8px;
+                            padding:10px 18px; flex:1; min-width:150px; text-align:center;">
+                    <div style="font-size:1.5rem;">🏨</div>
+                    <div style="color:#94A3B8; font-size:0.8rem;">Hotels Mapped</div>
+                    <div style="color:#E2E8F0; font-weight:700; font-size:1.2rem;">{num_hotels}</div>
+                </div>
+                <div style="background:#1E293B; border:1px solid #334155; border-radius:8px;
+                            padding:10px 18px; flex:1; min-width:150px; text-align:center;">
+                    <div style="font-size:1.5rem;">🎯</div>
+                    <div style="color:#94A3B8; font-size:0.8rem;">Activities Mapped</div>
+                    <div style="color:#E2E8F0; font-weight:700; font-size:1.2rem;">{num_activities}</div>
+                </div>
+                <div style="background:#1E293B; border:1px solid #334155; border-radius:8px;
+                            padding:10px 18px; flex:1; min-width:150px; text-align:center;">
+                    <div style="font-size:1.5rem;">🌍</div>
+                    <div style="color:#94A3B8; font-size:0.8rem;">Destination</div>
+                    <div style="color:#E2E8F0; font-weight:700; font-size:1.2rem;">{itinerary.destination}</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
 # Display Logic
 if st.session_state.current_state:
