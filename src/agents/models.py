@@ -14,12 +14,18 @@ class Hotel(BaseModel):
     total_price: float = Field(description="The total price for the stay.")
     rating: Optional[float] = Field(None, description="The hotel's star rating (0.0 to 5.0).")
     location: Optional[str] = Field(None, description="The general location or neighborhood of the hotel.")
+    latitude: Optional[float] = Field(None, description="Latitude coordinate for map plotting.")
+    longitude: Optional[float] = Field(None, description="Longitude coordinate for map plotting.")
 
 class Activity(BaseModel):
     name: str = Field(description="The name of the activity or attraction.")
     description: str = Field(description="A brief description of what to do.")
     cost: float = Field(description="The cost of the activity (0.0 if free).")
     day_number: int = Field(description="The day number this activity is planned for.")
+    location: Optional[str] = Field(None, description="The specific venue, landmark, or place name for map geocoding (e.g. 'Amber Fort, Jaipur').")
+    latitude: Optional[float] = Field(None, description="Latitude coordinate for map plotting.")
+    longitude: Optional[float] = Field(None, description="Longitude coordinate for map plotting.")
+
 
 class Itinerary(BaseModel):
     destination: str = Field(description="The destination city.")

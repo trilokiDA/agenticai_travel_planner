@@ -36,6 +36,7 @@ CRITICAL INSTRUCTIONS:
 3. PRESERVATION: If {mode} is REFINING, keep all parts of the CURRENT ITINERARY DRAFT that are not affected by the user feedback. Specifically, keep hotel ratings and flight providers stable unless changes are requested.
 4. ACCURACY: For each hotel, ensure the 'total_price' is exactly equal to 'price_per_night' multiplied by the trip duration ({duration} days). Ensure the 'total_cost' of the itinerary is the exact sum of all flights, all hotels' 'total_price', and all activities. Double check your math!
 5. REAL PRICES: If prices are higher than the budget, report the REAL price found. Let the validator handle budget issues.
+6. ACTIVITY LOCATION: For every activity, always include a "location" field with the real, specific venue or landmark name suitable for map geocoding (e.g. "Amber Fort, Jaipur", "Eiffel Tower, Paris"). This is mandatory for map display.
 
 Provide the output in STRICT JSON format matching the structure below:
 {{
@@ -45,7 +46,7 @@ Provide the output in STRICT JSON format matching the structure below:
     "flights": [{{ "origin": "{origin}", "destination": "{destination}", "price": 0.0, "provider": "Airline Name", "details": "Flight details" }}],
     "hotels": [{{ "name": "Hotel Name", "price_per_night": 0.0, "total_price": 0.0, "rating": 4.5, "location": "Neighborhood" }}],
     "activities": [
-        {{ "name": "Activity Name", "description": "Description", "cost": 0.0, "day_number": 1 }}
+        {{ "name": "Activity Name", "description": "Description", "cost": 0.0, "day_number": 1, "location": "Specific Venue or Landmark Name, {destination}" }}
     ],
     "status": "Draft",
     "validation_notes": "Mention here if real prices exceed budget or if data was missing."
