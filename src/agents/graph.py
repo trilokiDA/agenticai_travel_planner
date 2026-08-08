@@ -8,6 +8,7 @@ from src.agents.state import AgentState
 from src.agents.models import Itinerary, Flight, Hotel, Activity
 from src.agents.prompts import get_planner_prompt
 from src.tools.travel_tools import search_travel
+from src.utils.weather_engine import get_weather_for_trip
 import json
 
 load_dotenv()
@@ -49,11 +50,22 @@ def researcher(state: AgentState):
     for q in queries:
         res = search_travel(q)
         raw_results.append(res)
-    
+
+    # Fetch weather only on the first iteration (avoids redundant API calls on refinements)
+    weather_data = state.get("weather_data")
+    if not weather_data and state.get("travel_start_date"):
+        print("--- FETCHING WEATHER ---")
+        weather_data = get_weather_for_trip(
+            destination=destination,
+            travel_start_date=state["travel_start_date"],
+            num_days=duration,
+        )
+
     return {
         "search_queries": queries,
         "raw_search_results": raw_results,
-        "iteration_count": state.get("iteration_count", 0) + 1
+        "iteration_count": state.get("iteration_count", 0) + 1,
+        "weather_data": weather_data,
     }
 
 def planner(state: AgentState):

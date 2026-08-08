@@ -66,7 +66,7 @@ graph TD;
 
 ### Workflow Nodes & Edge Logic
 
-1. **`researcher` (Entry Point)**: Generates Tavily search queries for flights, hotels, and activities based on the trip parameters and retrieves real-time pricing and information.
+1. **`researcher` (Entry Point)**: Generates Tavily search queries for flights, hotels, and activities based on the trip parameters and retrieves real-time pricing and information. Also fetches **weather forecast or historical climate data** for the destination via Open-Meteo on the first iteration.
 2. **`planner`**: Parses the retrieved research data (or existing draft context + user feedback) and generates a structured itinerary using Llama 3.3 on Groq.
 3. **`validator`**: Cross-checks the plan details (calculating total cost, verifying flight/hotel completeness, and checking against the user's budget limit).
 4. **`human_review` (Breakpoint)**: Pauses graph execution and saves state. The Streamlit UI displays the current draft and prompts the user for feedback or approval.
@@ -79,6 +79,14 @@ graph TD;
 
 - **Human-in-the-loop (HITL)**: Take control of the planning process. Review drafts and request specific changes (e.g., "Add more museums," "Find a cheaper hotel").
 - **🎯 Activity Preferences & Customization**: Filter and curate activities by selecting interest areas (e.g., Adventure, Cultural, Relaxation, Food & Dining, Nature & Outdoors, Shopping, Nightlife) which are dynamically targeted in the research query.
+- **🌤️ Weather Forecast Widget**: Automatically fetches weather data for the destination during your travel dates — no API key required.
+  - **Live 16-day forecast** (Open-Meteo) for near-future trips.
+  - **30-year historical climate averages** (Open-Meteo Archive) as a fallback for trips beyond the forecast window.
+  - **Mixed mode** for trips that partially overlap the forecast horizon.
+  - Per-day cards showing high/low temperature, precipitation, wind speed, and WMO weather condition with emoji icons.
+  - Trip-level summary metrics: average high/low, total rainfall, and rainy day count.
+  - **°C / °F toggle** for user preference.
+  - Source badge clearly distinguishing live forecasts from historical averages.
 - **Full State Persistence**: Powered by LangGraph's `MemorySaver`, the agent remembers your trip details, search results, and previous versions of the plan across interactions.
 - **Surgical Refinement**: The agent intelligently edits existing drafts instead of starting from scratch, ensuring stable parts of your plan (like a selected hotel) stay unchanged unless requested.
 - **Sticky State Architecture**: Custom reducers ensure core configuration like budget and currency are never lost during the feedback loop.
@@ -89,7 +97,7 @@ graph TD;
 - **Version Control & Draft History**: View previous versions of your itinerary side-by-side with the current draft. Instantly roll back or restore any older version from the persistent checkpointer history.
 - **💾 Save & Load Itineraries**: Directly export your active travel plans to local JSON files. You can import them back later to restore the exact graph checkpointer state, resume refinement, and auto-populate all dashboard inputs.
 - **📊 Visual Budget Breakdown & Analytics**: Real-time interactive charts (using Pandas and Streamlit native charting) showing expense distribution across Flights, Hotels, and Activities, along with a color-coded budget utilization progress bar (Green, Amber, Red).
-- **Rich UI**: Interactive **Streamlit** dashboard with a tabbed interface for easy browsing of flights, hotels, and daily schedules.
+- **Rich UI**: Interactive **Streamlit** dashboard with a tabbed interface for easy browsing of flights, hotels, daily schedules, weather, and route map.
 - **📅 Export to Calendar & PDF**: Instantly export your final itinerary as a standard `.ics` file for calendar integration (Google Calendar, iCal, Outlook) or download a premium, print-ready PDF containing detailed itineraries, metadata summary cards, and dynamic page numbering.
 
 ## 📁 Project Structure
@@ -109,7 +117,9 @@ travel_planner/v1/
 │   │   └── travel_tools.py  # Search tool integration (Tavily)
 │   └── utils/
 │       ├── __init__.py
-│       └── export_engine.py # PDF & iCalendar Export Engine
+│       ├── export_engine.py # PDF & iCalendar Export Engine
+│       ├── map_engine.py    # Plotly route map & Nominatim geocoding
+│       └── weather_engine.py# Weather forecast & climate normals (Open-Meteo)
 ├── app.py                   # Streamlit Web Interface (with Cached Persistence)
 ├── main.py                  # CLI entry point
 ├── .env                     # API Key configuration
@@ -152,4 +162,6 @@ streamlit run app.py
 - **Pydantic**: Ensures strict data integrity for all output models.
 - **Surgical Prompting**: Context-aware prompts that allow the LLM to differentiate between "Generating" and "Refining" modes.
 - **LangSmith Tracing**: Integrated out-of-the-box observability to trace agent runs, latencies, tokens, and checkpointer changes.
+- **Open-Meteo Weather API**: Zero-cost, no-API-key weather integration. Uses the live forecast endpoint (up to 16 days) and automatically falls back to the historical archive endpoint for distant travel dates, with smart mixed-mode handling for trips that straddle the boundary.
+- **Nominatim Geocoding (OpenStreetMap)**: Shared across both the route map and weather engine for destination coordinate lookup — no third-party API key required.
 
