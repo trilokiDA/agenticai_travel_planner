@@ -287,7 +287,8 @@ with st.sidebar:
                 "iteration_count": 0,
                 "max_iterations": 3,
                 "error": None,
-                "user_feedback": None
+                "user_feedback": None,
+                "weather_data": None,
             }
             with st.spinner("Researching and planning..."):
                 planner_app.invoke(initial_state, config)
@@ -324,7 +325,8 @@ with st.sidebar:
             "iteration_count": state_vals.get("iteration_count", 0),
             "max_iterations": state_vals.get("max_iterations", 3),
             "error": state_vals.get("error"),
-            "user_feedback": state_vals.get("user_feedback")
+            "user_feedback": state_vals.get("user_feedback"),
+            "weather_data": state_vals.get("weather_data"),
         }
         json_str = json.dumps(save_data, indent=2, default=str)
         
@@ -369,7 +371,8 @@ with st.sidebar:
                         "iteration_count": loaded_vals.get("iteration_count", 0),
                         "max_iterations": loaded_vals.get("max_iterations", 3),
                         "error": loaded_vals.get("error"),
-                        "user_feedback": loaded_vals.get("user_feedback")
+                        "user_feedback": loaded_vals.get("user_feedback"),
+                        "weather_data": loaded_vals.get("weather_data"),
                     }
                     
                     # Generate a new unique thread ID to avoid state collision
@@ -390,7 +393,7 @@ with st.sidebar:
             st.error(f"Error loading file: {e}")
 
 # Helper to display itinerary
-def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, duration: int, travel_start_date: Optional[str], origin: str, is_round_trip: bool, activity_preferences: Optional[list] = None):
+def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, duration: int, travel_start_date: Optional[str], origin: str, is_round_trip: bool, activity_preferences: Optional[list] = None, weather_data: Optional[dict] = None):
     st.success(f"### 🎊 Itinerary for {itinerary.destination}")
     
     if activity_preferences:
@@ -537,8 +540,8 @@ def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, dur
     st.write("---")
     
     # We use local references to tabs since st.tabs returns them in order
-    tabs = st.tabs(["✈️ Flights", "🏨 Hotels", "📅 Daily Schedule", "🗺️ Route Map"])
-    tab1, tab2, tab3, tab4 = tabs[0], tabs[1], tabs[2], tabs[3]
+    tabs = st.tabs(["✈️ Flights", "🏨 Hotels", "📅 Daily Schedule", "🌤️ Weather", "🗺️ Route Map"])
+    tab1, tab2, tab3, tab_weather, tab4 = tabs[0], tabs[1], tabs[2], tabs[3], tabs[4]
     
     with tab1:
         for f in itinerary.flights:
@@ -563,6 +566,113 @@ def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, dur
                         st.write(f"📍 **{a.name}** - {a.description} (**{currency} {a.cost}**)")
                 else:
                     st.caption("No activities scheduled for this day. Relax or explore the local area!")
+
+    # -----------------------------------------------------------------------
+    # Weather Tab
+    # -----------------------------------------------------------------------
+    with tab_weather:
+        if not weather_data or weather_data.get("error") or not weather_data.get("days"):
+            error_msg = (weather_data or {}).get("error", "Weather data not available.")
+            st.info(f"🌡️ {error_msg}")
+        else:
+            wd_days = weather_data["days"]
+            wd_source = weather_data.get("source", "live_forecast")
+            wd_dest = weather_data.get("destination", itinerary.destination)
+
+            # Source badge
+            if wd_source == "live_forecast":
+                badge_text = "📡 Live Forecast (Open-Meteo)"
+                badge_color = "#10B981"
+            elif wd_source == "climate_average":
+                badge_text = "📊 Historical Climate Average (trip is >16 days away)"
+                badge_color = "#F59E0B"
+            else:
+                badge_text = "📡 Live Forecast + 📊 Historical Average (mixed)"
+                badge_color = "#3B82F6"
+
+            st.markdown(
+                f"""
+                <div style="display:inline-block; background-color:{badge_color}20;
+                            border:1px solid {badge_color}; border-radius:6px;
+                            padding:5px 14px; margin-bottom:16px;">
+                    <span style="color:{badge_color}; font-weight:600; font-size:0.85rem;">
+                        {badge_text}
+                    </span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            # C / F toggle
+            use_fahrenheit = st.toggle("Show temperatures in °F", value=False, key="weather_unit_toggle")
+
+            def fmt_temp(c_val):
+                if c_val is None:
+                    return "N/A"
+                if use_fahrenheit:
+                    return f"{c_val * 9/5 + 32:.0f}°F"
+                return f"{c_val:.0f}°C"
+
+            # Overall trip summary strip
+            valid_days = [d for d in wd_days if d.get("temp_max_c") is not None]
+            if valid_days:
+                avg_max = sum(d["temp_max_c"] for d in valid_days) / len(valid_days)
+                avg_min = sum(d["temp_min_c"] for d in valid_days if d.get("temp_min_c") is not None) / max(1, len([d for d in valid_days if d.get("temp_min_c") is not None]))
+                total_rain = sum(d.get("precipitation_mm", 0) for d in wd_days)
+                rainy_days = sum(1 for d in wd_days if d.get("precipitation_mm", 0) > 1.0)
+
+                sum_c1, sum_c2, sum_c3, sum_c4 = st.columns(4)
+                sum_c1.metric("Avg High", fmt_temp(avg_max))
+                sum_c2.metric("Avg Low", fmt_temp(avg_min))
+                sum_c3.metric("Total Rain", f"{total_rain:.1f} mm")
+                sum_c4.metric("Rainy Days", f"{rainy_days} / {duration}")
+
+            st.write("---")
+
+            # Per-day weather cards — 3 per row
+            CARDS_PER_ROW = 3
+            for row_start in range(0, len(wd_days), CARDS_PER_ROW):
+                row_days = wd_days[row_start: row_start + CARDS_PER_ROW]
+                cols = st.columns(len(row_days))
+                for col, day_data in zip(cols, row_days):
+                    day_num = day_data.get("day_number", "?")
+                    day_date = day_data.get("date", "")
+                    icon = day_data.get("weather_icon", "🌡️")
+                    label = day_data.get("weather_label", "")
+                    t_max = fmt_temp(day_data.get("temp_max_c"))
+                    t_min = fmt_temp(day_data.get("temp_min_c"))
+                    rain = day_data.get("precipitation_mm", 0)
+                    wind = day_data.get("wind_kmh")
+                    is_fc = day_data.get("is_forecast", True)
+                    data_tag = "Forecast" if is_fc else "Avg"
+                    tag_color = "#10B981" if is_fc else "#F59E0B"
+
+                    wind_line = f"<div style='font-size:0.8rem;color:#94A3B8;'>💨 {wind:.0f} km/h</div>" if wind is not None else ""
+
+                    card_html = f"""
+                    <div style="background: linear-gradient(145deg, #1E293B, #0F172A);
+                                border: 1px solid #334155; border-radius: 12px;
+                                padding: 16px 14px; text-align: center;
+                                box-shadow: 0 4px 12px rgba(0,0,0,0.3); height:100%;">
+                        <div style="font-size:0.75rem; color:#64748B; margin-bottom:4px;">
+                            Day {day_num} &nbsp;·&nbsp; {day_date}
+                        </div>
+                        <div style="font-size:2.4rem; margin: 4px 0;">{icon}</div>
+                        <div style="font-size:0.8rem; color:#CBD5E1; margin-bottom:8px;">{label}</div>
+                        <div style="font-size:1.3rem; font-weight:700; color:#F1F5F9;">
+                            {t_max} <span style="color:#64748B;font-size:1rem;">/ {t_min}</span>
+                        </div>
+                        <div style="font-size:0.8rem; color:#94A3B8; margin-top:6px;">🌧️ {rain:.1f} mm</div>
+                        {wind_line}
+                        <div style="margin-top:8px;">
+                            <span style="background:{tag_color}20; color:{tag_color};
+                                        border:1px solid {tag_color}; border-radius:4px;
+                                        font-size:0.65rem; padding:2px 7px;">{data_tag}</span>
+                        </div>
+                    </div>
+                    """
+                    col.markdown(card_html, unsafe_allow_html=True)
+                st.write("")
 
     with tab4:
         from src.utils.map_engine import build_route_map
@@ -654,14 +764,15 @@ if st.session_state.current_state:
         # Restore the rich UI
         itinerary = Itinerary(**itinerary_data)
         display_itinerary_ui(
-            itinerary, 
-            state_values.get('budget', 0.0), 
-            state_values.get('currency', 'USD'), 
+            itinerary,
+            state_values.get('budget', 0.0),
+            state_values.get('currency', 'USD'),
             state_values.get('duration_days', 1),
             state_values.get('travel_start_date'),
             state_values.get('origin', 'Origin'),
             state_values.get('is_round_trip', True),
-            state_values.get('activity_preferences', [])
+            state_values.get('activity_preferences', []),
+            state_values.get('weather_data'),
         )
         
         # --- Version History & Comparison Section ---

@@ -31,3 +31,6 @@ class AgentState(TypedDict):
     max_iterations: Annotated[int, merge_if_not_none]
     error: Annotated[Optional[str], merge_if_not_none]
     user_feedback: Annotated[Optional[str], merge_if_not_none]
+
+    # Weather forecast/climate data for the destination & travel dates
+    weather_data: Annotated[Optional[dict], merge_if_not_none]
