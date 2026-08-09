@@ -293,6 +293,7 @@ with st.sidebar:
             with st.spinner("Researching and planning..."):
                 planner_app.invoke(initial_state, config)
                 st.session_state.current_state = planner_app.get_state(config)
+                st.rerun()
                 
     st.markdown("---")
     st.subheader("💾 Save & Load Plan")
@@ -925,7 +926,11 @@ if st.session_state.current_state:
                 st.session_state.current_state = planner_app.get_state(config)
                 st.rerun()
     else:
-        st.balloons()
-        st.success("Planning complete!")
+        # Check if there is an error in the state
+        error_msg = state_values.get("error")
+        if error_msg:
+            st.error(f"Failed to generate an itinerary. Error: {error_msg}")
+        else:
+            st.warning("Failed to generate an itinerary. No data returned.")
 else:
     st.info("Enter trip details in the sidebar and click 'Start New Planning' to begin.")

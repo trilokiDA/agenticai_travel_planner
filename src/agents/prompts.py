@@ -41,6 +41,8 @@ CRITICAL INSTRUCTIONS:
    - Copy the URL EXACTLY as it appears in the SEARCH RESULTS block above. Never construct, guess, or modify a URL.
    - Only include a URL if the result explicitly names the specific flight provider, hotel, or activity. If no matching URL exists, set "source_url" to null.
    - Prefer URLs from known travel platforms (e.g. booking.com, makemytrip.com, skyscanner.com, tripadvisor.com, expedia.com) over generic blog posts.
+8. CURRENCY CONVERSION: Prices in the Search Results may be quoted in USD ($). You MUST convert all prices to {currency} before using them in the JSON output. Use an approximate rate of 1 USD ≈ 83 {currency} if no explicit conversion rate is found in the search results. Never copy a USD numeric value and label it as {currency}.
+9. FLIGHT PRICES: Search results often show "starting at" prices which are typically ONE-WAY fares. If the Trip Type is ROUND TRIP, you must double (multiply by 2) the one-way price found in the search results to reflect a realistic round-trip cost, unless the text explicitly states the price is already for a round trip.
 
 Provide the output in STRICT JSON format matching the structure below:
 {{

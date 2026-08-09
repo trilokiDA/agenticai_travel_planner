@@ -46,27 +46,31 @@ def researcher(state: AgentState):
         f"top {pref_str}activities within budget in {destination}"
     ]
     
-    raw_results = []
-    for q in queries:
-        res = search_travel(q)
-        raw_results.append(res)
+    try:
+        raw_results = []
+        for q in queries:
+            res = search_travel(q)
+            raw_results.append(res)
 
-    # Fetch weather only on the first iteration (avoids redundant API calls on refinements)
-    weather_data = state.get("weather_data")
-    if not weather_data and state.get("travel_start_date"):
-        print("--- FETCHING WEATHER ---")
-        weather_data = get_weather_for_trip(
-            destination=destination,
-            travel_start_date=state["travel_start_date"],
-            num_days=duration,
-        )
+        # Fetch weather only on the first iteration (avoids redundant API calls on refinements)
+        weather_data = state.get("weather_data")
+        if not weather_data and state.get("travel_start_date"):
+            print("--- FETCHING WEATHER ---")
+            weather_data = get_weather_for_trip(
+                destination=destination,
+                travel_start_date=state["travel_start_date"],
+                num_days=duration,
+            )
 
-    return {
-        "search_queries": queries,
-        "raw_search_results": raw_results,
-        "iteration_count": state.get("iteration_count", 0) + 1,
-        "weather_data": weather_data,
-    }
+        return {
+            "search_queries": queries,
+            "raw_search_results": raw_results,
+            "iteration_count": state.get("iteration_count", 0) + 1,
+            "weather_data": weather_data,
+        }
+    except Exception as e:
+        print(f"Researcher Error: {e}")
+        return {"error": f"Search API Error: {str(e)}"}
 
 def planner(state: AgentState):
     """
@@ -111,15 +115,15 @@ def planner(state: AgentState):
         raw_data=raw_data
     )
     
-    response = llm.invoke(prompt)
-    content = response.content
-    
-    import re
-    json_match = re.search(r'\{.*\}', content, re.DOTALL)
-    if json_match:
-        content = json_match.group(0)
-    
     try:
+        response = llm.invoke(prompt)
+        content = response.content
+        
+        import re
+        json_match = re.search(r'\{.*\}', content, re.DOTALL)
+        if json_match:
+            content = json_match.group(0)
+        
         itinerary_data = json.loads(content)
         itinerary = Itinerary(**itinerary_data)
         
@@ -138,6 +142,14 @@ def planner(state: AgentState):
             else:
                 h.total_price = 0.0
                 h.price_per_night = 0.0
+
+            # Sanity check: if currency is INR and price_per_night < 150,
+            # it is almost certainly a raw USD value that the LLM forgot to convert.
+            # Reasoning: 150 USD * ~83 ≈ ₹12,450 — a realistic ceiling for Indian hotel nightly rates.
+            if currency == "INR" and h.price_per_night < 150:
+                USD_TO_INR = 83.0
+                h.price_per_night = round(h.price_per_night * USD_TO_INR, 2)
+                h.total_price = round(h.price_per_night * duration, 2) if duration > 0 else 0.0
 
         # Calculate total cost programmatically to ensure accuracy
         flight_cost = sum(f.price for f in itinerary.flights)
