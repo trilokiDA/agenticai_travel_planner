@@ -7,6 +7,7 @@ class Flight(BaseModel):
     price: float = Field(description="The price of the flight.")
     provider: str = Field(description="The airline or booking site providing the flight.")
     details: Optional[str] = Field(None, description="Any additional flight details like times or layovers.")
+    source_url: Optional[str] = Field(None, description="URL of the search result page that mentioned this flight. Must be copied verbatim from search results, never invented.")
 
 class Hotel(BaseModel):
     name: str = Field(description="The name of the hotel.")
@@ -16,6 +17,7 @@ class Hotel(BaseModel):
     location: Optional[str] = Field(None, description="The general location or neighborhood of the hotel.")
     latitude: Optional[float] = Field(None, description="Latitude coordinate for map plotting.")
     longitude: Optional[float] = Field(None, description="Longitude coordinate for map plotting.")
+    source_url: Optional[str] = Field(None, description="URL of the search result page that mentioned this hotel. Must be copied verbatim from search results, never invented.")
 
 class Activity(BaseModel):
     name: str = Field(description="The name of the activity or attraction.")
@@ -25,6 +27,7 @@ class Activity(BaseModel):
     location: Optional[str] = Field(None, description="The specific venue, landmark, or place name for map geocoding (e.g. 'Amber Fort, Jaipur').")
     latitude: Optional[float] = Field(None, description="Latitude coordinate for map plotting.")
     longitude: Optional[float] = Field(None, description="Longitude coordinate for map plotting.")
+    source_url: Optional[str] = Field(None, description="URL of the search result page that mentioned this activity. Must be copied verbatim from search results, never invented.")
 
 
 class Itinerary(BaseModel):
