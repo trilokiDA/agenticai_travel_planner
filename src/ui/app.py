@@ -542,28 +542,62 @@ def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, dur
     # We use local references to tabs since st.tabs returns them in order
     tabs = st.tabs(["✈️ Flights", "🏨 Hotels", "📅 Daily Schedule", "🌤️ Weather", "🗺️ Route Map"])
     tab1, tab2, tab3, tab_weather, tab4 = tabs[0], tabs[1], tabs[2], tabs[3], tabs[4]
+
+    def _source_chip(url: str | None, label: str = "🔗 View Source") -> str:
+        """Returns an HTML anchor chip for a source URL, or empty string if URL is invalid."""
+        if not url:
+            return ""
+        # Guard against LLM placeholder values and non-HTTP URLs
+        if not url.startswith(("http://", "https://")) or url in ("https://...", "http://..."):
+            return ""
+        return (
+            f'<a href="{url}" target="_blank" rel="noopener noreferrer" '
+            f'style="display:inline-block; margin-left:10px; padding:2px 10px; '
+            f'background:#1E293B; border:1px solid #334155; border-radius:5px; '
+            f'color:#60A5FA; font-size:0.78rem; text-decoration:none; '
+            f'font-weight:500; vertical-align:middle;">{label}</a>'
+        )
     
     with tab1:
+        if not itinerary.flights:
+            st.caption("No flight information found.")
         for f in itinerary.flights:
-            st.write(f"**{f.provider}**: {f.origin} → {f.destination} (**{currency} {f.price}**)")
+            chip = _source_chip(f.source_url)
+            st.markdown(
+                f"**{f.provider}**: {f.origin} → {f.destination} "
+                f"(**{currency} {f.price}**){chip}",
+                unsafe_allow_html=True,
+            )
             if f.details:
                 st.caption(f"Details: {f.details}")
-    
+
     with tab2:
+        if not itinerary.hotels:
+            st.caption("No hotel information found.")
         for h in itinerary.hotels:
-            st.write(f"**{h.name}**: {currency} {h.price_per_night}/night (Total: **{currency} {h.total_price}**)")
+            chip = _source_chip(h.source_url)
+            st.markdown(
+                f"**{h.name}**: {currency} {h.price_per_night}/night "
+                f"(Total: **{currency} {h.total_price}**){chip}",
+                unsafe_allow_html=True,
+            )
             if h.rating:
                 st.write(f"⭐ Rating: {h.rating}")
             if h.location:
                 st.caption(f"Location: {h.location}")
-    
+
     with tab3:
         for day in range(1, duration + 1):
             day_activities = [a for a in itinerary.activities if a.day_number == day]
             with st.expander(f"📅 Day {day}", expanded=(day == 1)):
                 if day_activities:
                     for a in day_activities:
-                        st.write(f"📍 **{a.name}** - {a.description} (**{currency} {a.cost}**)")
+                        chip = _source_chip(a.source_url)
+                        st.markdown(
+                            f"📍 **{a.name}** — {a.description} "
+                            f"(**{currency} {a.cost}**){chip}",
+                            unsafe_allow_html=True,
+                        )
                 else:
                     st.caption("No activities scheduled for this day. Relax or explore the local area!")
 
