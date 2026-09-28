@@ -544,6 +544,8 @@ def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, dur
     tabs = st.tabs(["✈️ Flights", "🏨 Hotels", "📅 Daily Schedule", "🌤️ Weather", "🗺️ Route Map"])
     tab1, tab2, tab3, tab_weather, tab4 = tabs[0], tabs[1], tabs[2], tabs[3], tabs[4]
 
+    from src.utils.deep_links import generate_flight_link, generate_hotel_link, generate_activity_link
+
     def _source_chip(url: str | None, label: str = "🔗 View Source") -> str:
         """Returns an HTML anchor chip for a source URL, or empty string if URL is invalid."""
         if not url:
@@ -558,15 +560,26 @@ def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, dur
             f'color:#60A5FA; font-size:0.78rem; text-decoration:none; '
             f'font-weight:500; vertical-align:middle;">{label}</a>'
         )
+
+    def _booking_chip(url: str) -> str:
+        return (
+            f'<a href="{url}" target="_blank" rel="noopener noreferrer" '
+            f'style="display:inline-block; margin-left:10px; padding:4px 12px; '
+            f'background: linear-gradient(135deg, #10B981 0%, #059669 100%); border:none; border-radius:6px; '
+            f'color:#FFFFFF; font-size:0.78rem; text-decoration:none; '
+            f'font-weight:600; vertical-align:middle; box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);">🛒 Book Now</a>'
+        )
     
     with tab1:
         if not itinerary.flights:
             st.caption("No flight information found.")
         for f in itinerary.flights:
-            chip = _source_chip(f.source_url)
+            s_chip = _source_chip(f.source_url)
+            b_link = generate_flight_link(f.origin, f.destination, travel_start_date)
+            b_chip = _booking_chip(b_link)
             st.markdown(
                 f"**{f.provider}**: {f.origin} → {f.destination} "
-                f"(**{currency} {f.price}**){chip}",
+                f"(**{currency} {f.price}**){b_chip}{s_chip}",
                 unsafe_allow_html=True,
             )
             if f.details:
@@ -576,10 +589,12 @@ def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, dur
         if not itinerary.hotels:
             st.caption("No hotel information found.")
         for h in itinerary.hotels:
-            chip = _source_chip(h.source_url)
+            s_chip = _source_chip(h.source_url)
+            b_link = generate_hotel_link(h.name, itinerary.destination)
+            b_chip = _booking_chip(b_link)
             st.markdown(
                 f"**{h.name}**: {currency} {h.price_per_night}/night "
-                f"(Total: **{currency} {h.total_price}**){chip}",
+                f"(Total: **{currency} {h.total_price}**){b_chip}{s_chip}",
                 unsafe_allow_html=True,
             )
             if h.rating:
@@ -593,10 +608,12 @@ def display_itinerary_ui(itinerary: Itinerary, budget: float, currency: str, dur
             with st.expander(f"📅 Day {day}", expanded=(day == 1)):
                 if day_activities:
                     for a in day_activities:
-                        chip = _source_chip(a.source_url)
+                        s_chip = _source_chip(a.source_url)
+                        b_link = generate_activity_link(a.name, itinerary.destination)
+                        b_chip = _booking_chip(b_link)
                         st.markdown(
                             f"📍 **{a.name}** — {a.description} "
-                            f"(**{currency} {a.cost}**){chip}",
+                            f"(**{currency} {a.cost}**){b_chip}{s_chip}",
                             unsafe_allow_html=True,
                         )
                 else:

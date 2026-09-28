@@ -15,7 +15,7 @@ load_dotenv()
 
 # Initialize LLM
 llm = ChatGroq(
-    model="llama-3.3-70b-versatile",
+    model="openai/gpt-oss-20b",
     api_key=os.environ.get("GROQ_API_KEY")
 )
 
