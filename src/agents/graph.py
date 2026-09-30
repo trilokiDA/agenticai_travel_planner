@@ -1,7 +1,6 @@
 import os
 from typing import Literal
 from dotenv import load_dotenv
-from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, END
 
 from src.agents.state import AgentState
@@ -9,15 +8,13 @@ from src.agents.models import Itinerary, Flight, Hotel, Activity
 from src.agents.prompts import get_planner_prompt
 from src.tools.travel_tools import search_travel
 from src.utils.weather_engine import get_weather_for_trip
+from src.utils.llm_factory import get_llm
 import json
 
 load_dotenv()
 
-# Initialize LLM
-llm = ChatGroq(
-    model="openai/gpt-oss-20b",
-    api_key=os.environ.get("GROQ_API_KEY")
-)
+# Initialize LLM (provider is controlled by LLM_PROVIDER in .env)
+llm = get_llm()
 
 # Nodes
 def researcher(state: AgentState):
@@ -116,10 +113,19 @@ def planner(state: AgentState):
     )
     
     try:
-        response = llm.invoke(prompt)
-        content = response.content
-        
         import re
+        response = llm.invoke(prompt)
+
+        # Normalize content: Gemini/Groq can return a list of content parts
+        # instead of a plain string (especially when the fallback chain is used).
+        content = response.content
+        if isinstance(content, list):
+            content = " ".join(
+                part.get("text", "") if isinstance(part, dict) else str(part)
+                for part in content
+            )
+        content = str(content).strip()
+
         json_match = re.search(r'\{.*\}', content, re.DOTALL)
         if json_match:
             content = json_match.group(0)
