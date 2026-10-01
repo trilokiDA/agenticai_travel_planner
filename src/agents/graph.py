@@ -92,7 +92,7 @@ def planner(state: AgentState):
     mode = "REFINING" if itinerary_dict else "GENERATING"
     existing_itinerary_context = ""
     if itinerary_dict:
-        existing_itinerary_context = f"\nCURRENT ITINERARY DRAFT: {json.dumps(itinerary_dict, indent=2)}"
+        existing_itinerary_context = f"\nCURRENT ITINERARY DRAFT: {json.dumps(itinerary_dict, separators=(',', ':'))}"
 
     feedback_instruction = ""
     if user_feedback:
@@ -130,7 +130,15 @@ def planner(state: AgentState):
         if json_match:
             content = json_match.group(0)
         
-        itinerary_data = json.loads(content)
+        # Clean common LLM JSON formatting glitches (trailing commas, bad escapes)
+        cleaned_content = re.sub(r',\s*([\]}])', r'\1', content)
+        
+        try:
+            itinerary_data = json.loads(cleaned_content)
+        except json.JSONDecodeError:
+            # Secondary attempt with original extracted content
+            itinerary_data = json.loads(content)
+
         itinerary = Itinerary(**itinerary_data)
         
         # Reconcile hotel price_per_night and total_price for mathematical consistency
